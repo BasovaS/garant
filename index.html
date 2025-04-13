@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Таблица анализов</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="container">
+        <h1>Таблица анализов</h1>
+        <table id="dataTable"></table>
+
+        <!-- Блок с итогами и кнопками -->
+        <div id="resultBlock">
+            <h3>Итог</h3>
+            <pre id="resultText"></pre> <!-- Здесь будет отображаться итоговый текст -->
+            <button id="generateBtn">Создать ГП</button>
+            <button id="resetBtn">Сбросить результат</button>
+          </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
