@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Таблица с кнопками копирования</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    
+    .cell-wrapper {
+      position: relative;
+      padding: 8px;
+      min-height: 48px;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      background-color: rgba(0, 0, 0, 0.05);
+      border: none;
+      padding: 4px 6px;
+      font-size: 14px;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: background-color 0.2s ease;
+    }
+
+    .copy-btn:hover {
+      background-color: rgba(0, 0, 0, 0.1);
+    }
+
+    .cell-text {
+      white-space: pre-wrap;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #4caf50;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      z-index: 1000;
+    }
+
+    .toast.show {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Чекапы</h1>
+      <nav>
+        <a href="index.html">Частые Инвитро</a>
+        <a href="sheet2.html">Все Инвитро</a>
+        <a href="sheet3.html">Гемотест</a>
+        <a href="sheet4.html">Чекапы</a>
+      </nav>
+    </div>
+  </header>
+  <main>
+    <div id="tableContainer"></div>
+    <div id="toast" class="toast">Текст скопирован</div>
+  </main>
+
+  <script>
+    async function loadExcelSheet4() {
+      const response = await fetch('analyses.xlsx');
+      const arrayBuffer = await response.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: "array" });
+      const sheet = workbook.Sheets[workbook.SheetNames[3]]; // Лист 4
+      renderTableFromSheet(sheet);
+    }
+
+    function renderTableFromSheet(sheet) {
+      const table = document.createElement('table');
+      const range = XLSX.utils.decode_range(sheet['!ref']);
+      const merges = sheet['!merges'] || [];
+      const occupied = {};
+
+      for (let R = range.s.r; R <= range.e.r; ++R) {
+        const row = document.createElement('tr'); 
+
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+          if (occupied[`${R},${C}`]) continue;
+
+          const cellRef = XLSX.utils.encode_cell({ c: C, r: R });
+          const cell = sheet[cellRef];
+          const td = document.createElement(R === 0 ? 'th' : 'td');
+          const cellText = cell ? cell.v : '';
+
+          // Не добавляем кнопку "Скопировать" в первую строку и первый столбец
+          if (R !== 0 && C !== 0) {
+            td.innerHTML = `
+              <div class="cell-wrapper">
+                <button class="copy-btn" data-text="${cellText}">📋</button>
+                <div class="cell-text">${cellText}</div>
+              </div>
+            `;
+          } else {
+            td.innerHTML = `<div class="cell-text">${cellText}</div>`;
+          }
+
+          const merge = merges.find(m =>
+            R >= m.s.r && R <= m.e.r &&
+            C >= m.s.c && C <= m.e.c
+          );
+
+          if (merge) {
+            const rowspan = merge.e.r - merge.s.r + 1;
+            const colspan = merge.e.c - merge.s.c + 1;
+            if (rowspan > 1) td.rowSpan = rowspan;
+            if (colspan > 1) td.colSpan = colspan;
+
+            for (let r = merge.s.r; r <= merge.e.r; r++) {
+              for (let c = merge.s.c; c <= merge.e.c; c++) {
+                if (r === R && c === C) continue;
+                occupied[`${r},${c}`] = true;
+              }
+            }
+          }
+
+          row.appendChild(td);
+        }
+
+        table.appendChild(row);
+      }
+
+      document.getElementById('tableContainer').appendChild(table);
+
+      // Обработчики кнопок
+      document.querySelectorAll('.copy-btn').forEach(button => {
+        button.addEventListener('click', () => {
+          const text = button.getAttribute('data-text');
+          navigator.clipboard.writeText(text).then(() => {
+            const toast = document.getElementById('toast');
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2000);
+          });
+        });
+      });
+    }
+
+    loadExcelSheet4();
+  </script>
+</body>
+</html>
