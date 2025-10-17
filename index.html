@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Частые Инвитро</title>
+  <link rel="stylesheet" href="styles.css" />
+   <link rel="stylesheet" href="info-button.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+  <div id="header-placeholder"></div>
+  <script src="main.js" defer></script>
+  <main>
+    <div class="app">
+      <div class="sidebar">
+        <div class="result-header">Итог</div>
+        <pre id="resultText" class="result-box"></pre>
+        <div class="buttons">
+          <button id="generateBtn">Создать ГП</button>
+          <button id="resetBtn">Сбросить</button>
+          <button id="copyBtn">📋 Скопировать</button>
+        </div>
+        <div id="toast" class="toast">Скопировано!</div>
+      </div>
+
+      
+      <div class="table-section">
+        <div class="search-bar">
+          <input type="text" id="searchInput" placeholder="Поиск по таблице...">
+        </div>
+        <div id="tableContainer">
+        </div>
+      </div>
+    </div>
+    
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
