@@ -209,6 +209,7 @@ function renderCatalog() {
       else selection.delete(key);
       tr.classList.toggle('selected', checkbox.checked);
       els.selectedCount.textContent = selection.size;
+      updateResult();
     });
     checkTd.append(checkbox);
     tr.append(checkTd);
@@ -231,9 +232,7 @@ function renderCatalog() {
 
   els.body.replaceChildren(fragment);
 
-  const saved = state.results[tab];
-  els.result.textContent = saved || 'Выберите анализы в таблице и нажмите «Создать ГП».';
-  els.result.classList.toggle('result-placeholder', !saved);
+  updateResult();
 }
 
 function selectedRows(tab) {
@@ -322,8 +321,7 @@ function requiresGynSampling(row) {
     && pcrSamplingSites.some(marker => text.includes(marker));
 }
 
-function generateResult() {
-  const tab = state.active;
+function buildResult(tab = state.active) {
   const rows = selectedRows(tab);
   let text = '';
 
@@ -353,6 +351,20 @@ function generateResult() {
     text += '\nАдрес: ';
   }
 
+  return text;
+}
+
+function updateResult() {
+  const tab = state.active;
+  const hasSelection = state.selected[tab].size > 0;
+  if (!hasSelection) {
+    state.results[tab] = '';
+    els.result.textContent = 'Выберите анализы в таблице.';
+    els.result.classList.add('result-placeholder');
+    return;
+  }
+
+  const text = buildResult(tab);
   state.results[tab] = text;
   els.result.textContent = text;
   els.result.classList.remove('result-placeholder');
@@ -519,13 +531,12 @@ function bindEvents() {
   });
 
   els.clearSelection.addEventListener('click', clearSelection);
-  document.getElementById('generateBtn').addEventListener('click', generateResult);
   document.getElementById('resetBtn').addEventListener('click', clearSelection);
 
   document.getElementById('copyBtn').addEventListener('click', () => {
     const text = state.results[state.active] || '';
     if (text) copyText(text);
-    else showToast('Сначала создайте ГП');
+    else showToast('Сначала выберите анализ');
   });
 
   els.checkupSearch.addEventListener('input', renderCheckups);
