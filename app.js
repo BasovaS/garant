@@ -237,6 +237,79 @@ function selectedRows(tab) {
   return DATA[tab].filter(row => set.has(rowKey(tab, row)));
 }
 
+function requiresGynSampling(row) {
+  const text = normalize([
+    row.code,
+    row.name,
+    row.material,
+    row.result
+  ].filter(Boolean).join(' '));
+
+  // Явные признаки цитологического исследования.
+  const cytologyMarkers = [
+    'цитолог',
+    'цитограмм',
+    'онкоцитолог',
+    'жидкостн',
+    'папаниколау',
+    'pap test',
+    'pap-test',
+    'pap smear',
+    'цервикальн',
+    'эндоцервик',
+    'экзоцервик',
+    'шейки матки',
+    'цервикального канала'
+  ];
+
+  if (cytologyMarkers.some(marker => text.includes(marker))) {
+    return true;
+  }
+
+  // Явные формулировки материала, для которых требуется отдельное взятие.
+  const samplingMaterialMarkers = [
+    'соскоб эпителиальных клеток',
+    'урогенитальн',
+    'вагинальн',
+    'цервикальн',
+    'уретральн',
+    'отделяемое половых органов',
+    'мазок',
+    'стекло'
+  ];
+
+  if (samplingMaterialMarkers.some(marker => text.includes(marker))) {
+    return true;
+  }
+
+  // Для ПЦР учитываем не само слово «ПЦР», а сочетание с материалом,
+  // который действительно нужно брать отдельно. Это снижает ложные срабатывания
+  // на ПЦР-исследования крови и других уже полученных образцов.
+  const pcrMarkers = [
+    'пцр',
+    'определение днк',
+    'определение рнк',
+    'dna',
+    'rna'
+  ];
+
+  const pcrSamplingSites = [
+    'соскоб',
+    'мазок',
+    'урогенитальн',
+    'вагинальн',
+    'цервикальн',
+    'уретральн',
+    'ротоглот',
+    'слизист',
+    'конъюнктив',
+    'отделяемое'
+  ];
+
+  return pcrMarkers.some(marker => text.includes(marker))
+    && pcrSamplingSites.some(marker => text.includes(marker));
+}
+
 function generateResult() {
   const tab = state.active;
   const rows = selectedRows(tab);
@@ -251,38 +324,16 @@ function generateResult() {
     text += rows.map(row => `${formatValue(row.code)} - ${formatValue(row.name)} - 1 шт.`).join('\n');
     text += '\nАдрес: ';
   } else {
-    const selectedText = normalize(rows
-      .map(row => [row.name, row.material, row.result].filter(Boolean).join(' '))
-      .join(' '));
+    const blood = rows.some(row =>
+      normalize([row.name, row.material].filter(Boolean).join(' ')).includes('кров')
+    );
 
-    const blood = selectedText.includes('кров');
-
-    const gynSamplingMarkers = [
-      // Цитология
-      'цитолог',
-      'жидкостн',
-      'онкоцитолог',
-      'цитограмм',
-      'риноцитограмм',
-      'папаниколау',
-      'pap test',
-      'pap-test',
-
-      // ПЦР / мазки / соскобы / микробиология
-      'пцр',
-      'соскоб',
-      'мазок',
-      'отделяемое',
-      'стекло'
-    ];
-
-    const requiresGynSampling = gynSamplingMarkers
-      .some(marker => selectedText.includes(marker));
+    const gynSampling = rows.some(requiresGynSampling);
 
     if (blood) {
       text += 'VEN - Взятие венозной крови (venous blood sampling)\n';
     }
-    if (requiresGynSampling) {
+    if (gynSampling) {
       text += '1В-ГИН - Взятие цитологического материала, материала для ПЦР диагностики, микробиологических исследований (Cytological material sampling, PCR diagnosis material sampling, microbiology test material sampling)\n';
     }
 
