@@ -59,7 +59,8 @@ const els = {
   clearSelection: document.getElementById('clearSelectionBtn'),
   checkupSearch: document.getElementById('checkupSearch'),
   checkupGrid: document.getElementById('checkupGrid'),
-  toast: document.getElementById('toast')
+  toast: document.getElementById('toast'),
+  hemotestNotice: document.getElementById('hemotestNotice')
 };
 
 const normalize = value => String(value ?? '')
@@ -431,6 +432,7 @@ function switchTab(tab, updateHash = true) {
   if (tab === 'checkups') {
     els.catalogView.classList.add('hidden');
     els.checkupsView.classList.add('active');
+    els.hemotestNotice.hidden = true;
     renderCheckups();
     return;
   }
@@ -438,6 +440,7 @@ function switchTab(tab, updateHash = true) {
   state.active = tab;
   els.checkupsView.classList.remove('active');
   els.catalogView.classList.remove('hidden');
+  els.hemotestNotice.hidden = tab !== 'hemotest';
   renderCatalog();
 }
 
