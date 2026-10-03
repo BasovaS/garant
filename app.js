@@ -35,6 +35,7 @@ const state = {
   page: { invitro: 1, hemotest: 1 },
   query: { invitro: '', hemotest: '' },
   selected: { invitro: new Set(), hemotest: new Set() },
+  showSelectedOnly: { invitro: false, hemotest: false },
   results: { invitro: '', hemotest: '' },
   loaded: false
 };
@@ -53,11 +54,13 @@ const els = {
   pageLabel: document.getElementById('pageLabel'),
   prev: document.getElementById('prevPage'),
   next: document.getElementById('nextPage'),
+  showSelected: document.getElementById('showSelectedBtn'),
   selectPage: document.getElementById('selectPageBtn'),
   clearSelection: document.getElementById('clearSelectionBtn'),
   checkupSearch: document.getElementById('checkupSearch'),
   checkupGrid: document.getElementById('checkupGrid'),
-  toast: document.getElementById('toast')
+  toast: document.getElementById('toast'),
+  hemotestNotice: document.getElementById('hemotestNotice')
 };
 
 const normalize = value => String(value ?? '')
@@ -134,9 +137,14 @@ function searchableText(row) {
 
 function filteredRows(tab = state.active) {
   const q = normalize(state.query[tab]);
-  if (!q) return DATA[tab];
   const tokens = q.split(/\s+/).filter(Boolean);
+  const selectedOnly = state.showSelectedOnly[tab];
+  const selection = state.selected[tab];
+
   return DATA[tab].filter(row => {
+    if (selectedOnly && !selection.has(rowKey(tab, row))) return false;
+    if (!tokens.length) return true;
+
     const haystack = searchableText(row);
     return tokens.every(token => haystack.includes(token));
   });
@@ -173,6 +181,8 @@ function renderCatalog() {
     : 'Поиск по коду, названию или биоматериалу…';
   els.stats.textContent = `Найдено: ${rows.length.toLocaleString('ru-RU')} · Всего: ${DATA[tab].length.toLocaleString('ru-RU')}`;
   els.selectedCount.textContent = selection.size;
+  els.showSelected.textContent = state.showSelectedOnly[tab] ? 'Показаны выбранные ×' : 'Показать выбранные';
+  els.showSelected.classList.toggle('active-filter', state.showSelectedOnly[tab]);
   els.pageLabel.textContent = `Страница ${page} из ${totalPages}`;
   els.prev.disabled = page <= 1;
   els.next.disabled = page >= totalPages;
@@ -233,7 +243,7 @@ function renderCatalog() {
   els.body.replaceChildren(fragment);
 
   updateResult();
-
+}
 
 function selectedRows(tab) {
   const set = state.selected[tab];
@@ -326,7 +336,9 @@ function buildResult(tab = state.active) {
   let text = '';
 
   if (!rows.length) {
-    return '';
+    text = tab === 'hemotest'
+      ? 'Не выбраны анализы.'
+      : 'Выберите хотя бы один анализ для создания ГП.';
   } else if (tab === 'hemotest') {
     text = 'ID 417621 «Лучи Здоровье»\n';
     text += rows.map(row => `${formatValue(row.code)} - ${formatValue(row.name)} - 1 шт.`).join('\n');
@@ -353,13 +365,19 @@ function buildResult(tab = state.active) {
 }
 
 function updateResult() {
-  const text = buildResult(state.active);
-  const hasSelection = state.selected[state.active].size > 0;
-  state.results[state.active] = hasSelection ? text : '';
-  els.result.textContent = hasSelection
-    ? text
-    : (state.active === 'hemotest' ? 'Выберите анализы в таблице.' : 'Выберите анализы в таблице.');
-  els.result.classList.toggle('result-placeholder', !hasSelection);
+  const tab = state.active;
+  const hasSelection = state.selected[tab].size > 0;
+  if (!hasSelection) {
+    state.results[tab] = '';
+    els.result.textContent = 'Выберите анализы в таблице.';
+    els.result.classList.add('result-placeholder');
+    return;
+  }
+
+  const text = buildResult(tab);
+  state.results[tab] = text;
+  els.result.textContent = text;
+  els.result.classList.remove('result-placeholder');
 }
 
 async function copyText(text) {
@@ -399,6 +417,7 @@ function showToast(message) {
 
 function clearSelection() {
   state.selected[state.active].clear();
+  state.showSelectedOnly[state.active] = false;
   state.results[state.active] = '';
   renderCatalog();
 }
@@ -413,6 +432,7 @@ function switchTab(tab, updateHash = true) {
   if (tab === 'checkups') {
     els.catalogView.classList.add('hidden');
     els.checkupsView.classList.add('active');
+    els.hemotestNotice.hidden = true;
     renderCheckups();
     return;
   }
@@ -420,6 +440,7 @@ function switchTab(tab, updateHash = true) {
   state.active = tab;
   els.checkupsView.classList.remove('active');
   els.catalogView.classList.remove('hidden');
+  els.hemotestNotice.hidden = tab !== 'hemotest';
   renderCatalog();
 }
 
@@ -514,6 +535,12 @@ function bindEvents() {
     renderCatalog();
   });
 
+  els.showSelected.addEventListener('click', () => {
+    state.showSelectedOnly[state.active] = !state.showSelectedOnly[state.active];
+    state.page[state.active] = 1;
+    renderCatalog();
+  });
+
   els.selectPage.addEventListener('click', () => {
     const selection = state.selected[state.active];
     for (const row of visibleRows().pageRows) {
@@ -526,7 +553,7 @@ function bindEvents() {
   document.getElementById('resetBtn').addEventListener('click', clearSelection);
 
   document.getElementById('copyBtn').addEventListener('click', () => {
-    const text = state.selected[state.active].size ? buildResult(state.active) : '';
+    const text = state.results[state.active] || '';
     if (text) copyText(text);
     else showToast('Сначала выберите анализ');
   });
