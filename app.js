@@ -1,18 +1,52 @@
+const DATA = {
+  invitro: [],
+  hemotest: [],
+  checkups: []
+};
+
 const PAGE_SIZE = 100;
 
+const TAB_CONFIG = {
+  invitro: {
+    title: 'Инвитро',
+    columns: [
+      ['code', 'Код', 'code-cell'],
+      ['name', 'Название', 'name-cell'],
+      ['material', 'Биоматериал', 'material-cell'],
+      ['result', 'Результат', 'num-cell'],
+      ['days', 'Срок, раб. дн.', 'num-cell'],
+      ['price', 'Стоимость, руб.', 'num-cell']
+    ]
+  },
+  hemotest: {
+    title: 'Гемотест',
+    columns: [
+      ['code', 'Код на бланке', 'code-cell'],
+      ['name', 'Название услуги для ГП', 'name-cell'],
+      ['days', 'Срок выполнения', 'num-cell'],
+      ['price', 'ИНД-10524, руб.', 'num-cell'],
+      ['newPrice', 'Новая цена, руб.', 'num-cell']
+    ]
+  }
+};
+
 const state = {
-  rows: [],
-  page: 1,
-  query: '',
-  selected: new Set(),
-  result: ''
+  active: 'invitro',
+  page: { invitro: 1, hemotest: 1 },
+  query: { invitro: '', hemotest: '' },
+  selected: { invitro: new Set(), hemotest: new Set() },
+  results: { invitro: '', hemotest: '' },
+  loaded: false
 };
 
 const els = {
+  catalogView: document.getElementById('catalogView'),
+  checkupsView: document.getElementById('checkupsView'),
   search: document.getElementById('searchInput'),
   clearSearch: document.getElementById('clearSearch'),
   head: document.getElementById('tableHead'),
   body: document.getElementById('tableBody'),
+  title: document.getElementById('tableTitle'),
   stats: document.getElementById('tableStats'),
   selectedCount: document.getElementById('selectedCount'),
   result: document.getElementById('resultText'),
@@ -21,48 +55,84 @@ const els = {
   next: document.getElementById('nextPage'),
   selectPage: document.getElementById('selectPageBtn'),
   clearSelection: document.getElementById('clearSelectionBtn'),
+  checkupSearch: document.getElementById('checkupSearch'),
+  checkupGrid: document.getElementById('checkupGrid'),
   toast: document.getElementById('toast')
 };
 
-const normalize = value => String(value ?? '')
-  .toLocaleLowerCase('ru-RU')
-  .replace(/ё/g, 'е')
-  .trim();
+const normalize = value => String(value ?? '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').trim();
+const formatValue = value => value === '' || value == null ? '—' : String(value);
+const rowKey = (tab, row) => `${tab}:${row.id}`;
 
-function sheetToRows(sheet) {
-  const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-  const headers = matrix[0] || [];
-  return matrix.slice(1)
+function parseInvitroSheet(sheet) {
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+  return rows.slice(1)
     .filter(row => row.some(value => String(value).trim() !== ''))
-    .map((values, index) => ({
+    .map((row, index) => ({
       id: index + 1,
-      values,
-      code: values[1] ?? '',
-      name: values[2] ?? '',
-      material: values[3] ?? '',
-      headers
+      code: row[1] ?? '',
+      name: row[2] ?? '',
+      material: row[3] ?? '',
+      result: row[4] ?? '',
+      days: row[5] ?? '',
+      price: row[6] ?? ''
     }));
 }
 
-async function loadExcel() {
-  const response = await fetch('analyses.xlsx');
-  if (!response.ok) throw new Error('Не удалось загрузить analyses.xlsx');
+function parseHemotestSheet(sheet) {
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+  return rows.slice(1)
+    .filter(row => row.some(value => String(value).trim() !== ''))
+    .map((row, index) => ({
+      id: index + 1,
+      code: row[1] ?? '',
+      name: row[2] ?? '',
+      days: row[3] ?? '',
+      price: row[4] ?? '',
+      newPrice: row[5] ?? ''
+    }));
+}
+
+function parseCheckupsSheet(sheet) {
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+  return rows.slice(1)
+    .filter(row => row.some(value => String(value).trim() !== ''))
+    .map((row, index) => ({
+      id: index + 1,
+      name: row[0] ?? '',
+      composition: row[1] ?? '',
+      standard: row[2] ?? '',
+      invitro: row[3] ?? ''
+    }));
+}
+
+async function loadData() {
+  const response = await fetch('analyses.xlsx', { cache: 'no-store' });
+  if (!response.ok) throw new Error(`Не удалось загрузить analyses.xlsx: ${response.status}`);
+
   const arrayBuffer = await response.arrayBuffer();
   const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-  const sheet = workbook.Sheets[workbook.SheetNames[1]];
-  state.rows = sheetToRows(sheet);
-  renderCatalog();
+
+  if (workbook.SheetNames.length < 4) {
+    throw new Error('В analyses.xlsx ожидается минимум 4 листа');
+  }
+
+  DATA.invitro = parseInvitroSheet(workbook.Sheets[workbook.SheetNames[1]]);
+  DATA.hemotest = parseHemotestSheet(workbook.Sheets[workbook.SheetNames[2]]);
+  DATA.checkups = parseCheckupsSheet(workbook.Sheets[workbook.SheetNames[3]]);
+
+  state.loaded = true;
 }
 
 function searchableText(row) {
-  return normalize(row.values.join(' '));
+  return normalize(Object.values(row).join(' '));
 }
 
-function filteredRows() {
-  const q = normalize(state.query);
-  if (!q) return state.rows;
+function filteredRows(tab = state.active) {
+  const q = normalize(state.query[tab]);
+  if (!q) return DATA[tab];
   const tokens = q.split(/\s+/).filter(Boolean);
-  return state.rows.filter(row => {
+  return DATA[tab].filter(row => {
     const haystack = searchableText(row);
     return tokens.every(token => haystack.includes(token));
   });
@@ -71,25 +141,37 @@ function filteredRows() {
 function visibleRows() {
   const rows = filteredRows();
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
-  state.page = Math.min(state.page, totalPages);
-  const start = (state.page - 1) * PAGE_SIZE;
+  state.page[state.active] = Math.min(state.page[state.active], totalPages);
+  const start = (state.page[state.active] - 1) * PAGE_SIZE;
   return { rows, pageRows: rows.slice(start, start + PAGE_SIZE), totalPages };
 }
 
-function makeCell(text) {
+function makeCell(text, className = '') {
   const td = document.createElement('td');
-  td.textContent = text === '' || text == null ? '—' : String(text);
+  td.textContent = formatValue(text);
+  if (className) td.className = className;
   return td;
 }
 
 function renderCatalog() {
+  if (!state.loaded) return;
+
+  const tab = state.active;
+  const config = TAB_CONFIG[tab];
+  const selection = state.selected[tab];
   const { rows, pageRows, totalPages } = visibleRows();
-  els.stats.textContent = `Найдено: ${rows.length.toLocaleString('ru-RU')} · Всего: ${state.rows.length.toLocaleString('ru-RU')}`;
-  els.selectedCount.textContent = state.selected.size;
-  els.pageLabel.textContent = `Страница ${state.page} из ${totalPages}`;
-  els.prev.disabled = state.page <= 1;
-  els.next.disabled = state.page >= totalPages;
-  els.search.value = state.query;
+  const page = state.page[tab];
+
+  els.title.textContent = config.title;
+  els.search.value = state.query[tab];
+  els.search.placeholder = tab === 'hemotest'
+    ? 'Поиск по коду или названию…'
+    : 'Поиск по коду, названию или биоматериалу…';
+  els.stats.textContent = `Найдено: ${rows.length.toLocaleString('ru-RU')} · Всего: ${DATA[tab].length.toLocaleString('ru-RU')}`;
+  els.selectedCount.textContent = selection.size;
+  els.pageLabel.textContent = `Страница ${page} из ${totalPages}`;
+  els.prev.disabled = page <= 1;
+  els.next.disabled = page >= totalPages;
 
   els.head.replaceChildren();
   const headerRow = document.createElement('tr');
@@ -98,43 +180,45 @@ function renderCatalog() {
   checkHead.textContent = '✓';
   headerRow.append(checkHead);
 
-  const headers = state.rows[0]?.headers || [];
-  headers.slice(1).forEach(label => {
+  for (const [, label] of config.columns) {
     const th = document.createElement('th');
-    th.textContent = label || '—';
+    th.textContent = label;
     headerRow.append(th);
-  });
+  }
   els.head.append(headerRow);
 
   const fragment = document.createDocumentFragment();
-  pageRows.forEach(row => {
+  for (const row of pageRows) {
     const tr = document.createElement('tr');
-    if (state.selected.has(row.id)) tr.classList.add('selected');
+    const key = rowKey(tab, row);
+    if (selection.has(key)) tr.classList.add('selected');
 
     const checkTd = document.createElement('td');
     checkTd.className = 'check-cell';
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.className = 'row-check';
-    checkbox.checked = state.selected.has(row.id);
-    checkbox.setAttribute('aria-label', `Выбрать ${row.name || row.code}`);
+    checkbox.checked = selection.has(key);
+    checkbox.setAttribute('aria-label', `Выбрать ${formatValue(row.name)}`);
     checkbox.addEventListener('change', () => {
-      if (checkbox.checked) state.selected.add(row.id);
-      else state.selected.delete(row.id);
+      if (checkbox.checked) selection.add(key);
+      else selection.delete(key);
       tr.classList.toggle('selected', checkbox.checked);
-      els.selectedCount.textContent = state.selected.size;
+      els.selectedCount.textContent = selection.size;
     });
     checkTd.append(checkbox);
     tr.append(checkTd);
 
-    row.values.slice(1).forEach(value => tr.append(makeCell(value)));
+    for (const [field, , className] of config.columns) {
+      tr.append(makeCell(row[field], className));
+    }
     fragment.append(tr);
-  });
+  }
 
   if (!pageRows.length) {
     const tr = document.createElement('tr');
     const td = document.createElement('td');
-    td.colSpan = Math.max(2, (state.rows[0]?.values.length || 1));
+    td.colSpan = config.columns.length + 1;
     td.className = 'empty';
     td.textContent = 'Ничего не найдено. Попробуйте изменить запрос.';
     tr.append(td);
@@ -142,40 +226,55 @@ function renderCatalog() {
   }
 
   els.body.replaceChildren(fragment);
-  els.result.textContent = state.result || 'Выберите анализы в таблице и нажмите «Создать ГП».';
-  els.result.classList.toggle('result-placeholder', !state.result);
+
+  const saved = state.results[tab];
+  els.result.textContent = saved || 'Выберите анализы в таблице и нажмите «Создать ГП».';
+  els.result.classList.toggle('result-placeholder', !saved);
 }
 
-function selectedRows() {
-  return state.rows.filter(row => state.selected.has(row.id));
+function selectedRows(tab) {
+  const set = state.selected[tab];
+  return DATA[tab].filter(row => set.has(rowKey(tab, row)));
 }
 
 function generateResult() {
-  const rows = selectedRows();
+  const tab = state.active;
+  const rows = selectedRows(tab);
+  let text = '';
+
   if (!rows.length) {
-    state.result = 'Выберите хотя бы один анализ для создания ГП.';
+    text = tab === 'hemotest'
+      ? 'Не выбраны анализы.'
+      : 'Выберите хотя бы один анализ для создания ГП.';
+  } else if (tab === 'hemotest') {
+    text = 'ID 10524 ООО «Бестдоктор»\n';
+    text += rows.map(row => `${formatValue(row.code)} - ${formatValue(row.name)} - 1 шт.`).join('\n');
+    text += '\nАдрес: ';
   } else {
     const materials = normalize(rows.map(row => row.material).join(' '));
     const blood = materials.includes('кров');
-    const scrape = ['соскоб', 'отделяемое', 'мазок', 'пцр', 'стекло'].some(word => materials.includes(word));
+    const scrape = ['соскоб', 'отделяемое', 'мазок', 'пцр', 'стекло']
+      .some(word => materials.includes(word));
 
-    let text = '';
-    if (blood) text += 'VEN - Взятие венозной крови (venous blood sampling)\n';
+    if (blood) {
+      text += 'VEN - Взятие венозной крови (venous blood sampling)\n';
+    }
     if (scrape) {
       text += '1В-ГИН - Взятие цитологического материала, материала для ПЦР диагностики, микробиологических исследований (Cytological material sampling, PCR diagnosis material sampling, microbiology test material sampling)\n';
     }
 
-    text += rows.map(row => `${row.code} - ${row.name} - 1 шт.`).join('\n');
+    text += rows.map(row => `${formatValue(row.code)} - ${formatValue(row.name)} - 1 шт.`).join('\n');
     text += '\nАдрес: ';
-    state.result = text;
   }
 
-  els.result.textContent = state.result;
+  state.results[tab] = text;
+  els.result.textContent = text;
   els.result.classList.remove('result-placeholder');
 }
 
 async function copyText(text) {
   if (!text) return false;
+
   try {
     if (navigator.clipboard && window.isSecureContext) {
       await navigator.clipboard.writeText(text);
@@ -191,9 +290,10 @@ async function copyText(text) {
       area.remove();
       if (!ok) throw new Error('copy failed');
     }
+
     showToast('Скопировано');
     return true;
-  } catch {
+  } catch (error) {
     showToast('Не удалось скопировать');
     return false;
   }
@@ -208,48 +308,162 @@ function showToast(message) {
 }
 
 function clearSelection() {
-  state.selected.clear();
-  state.result = '';
+  state.selected[state.active].clear();
+  state.results[state.active] = '';
   renderCatalog();
 }
 
-els.search.addEventListener('input', () => {
-  state.query = els.search.value;
-  state.page = 1;
+function switchTab(tab, updateHash = true) {
+  document.querySelectorAll('.tab').forEach(button => {
+    button.classList.toggle('active', button.dataset.tab === tab);
+  });
+
+  if (updateHash) history.replaceState(null, '', `#${tab}`);
+
+  if (tab === 'checkups') {
+    els.catalogView.classList.add('hidden');
+    els.checkupsView.classList.add('active');
+    renderCheckups();
+    return;
+  }
+
+  state.active = tab;
+  els.checkupsView.classList.remove('active');
+  els.catalogView.classList.remove('hidden');
   renderCatalog();
-});
+}
 
-els.clearSearch.addEventListener('click', () => {
-  state.query = '';
-  state.page = 1;
-  renderCatalog();
-  els.search.focus();
-});
+function createCopyBlock(title, text) {
+  const block = document.createElement('section');
+  block.className = 'copy-block';
 
-els.prev.addEventListener('click', () => {
-  state.page--;
-  renderCatalog();
-});
+  const heading = document.createElement('h3');
+  heading.textContent = title;
 
-els.next.addEventListener('click', () => {
-  state.page++;
-  renderCatalog();
-});
+  const pre = document.createElement('pre');
+  pre.textContent = text || '—';
 
-els.selectPage.addEventListener('click', () => {
-  visibleRows().pageRows.forEach(row => state.selected.add(row.id));
-  renderCatalog();
-});
+  const button = document.createElement('button');
+  button.className = 'copy-cell';
+  button.type = 'button';
+  button.textContent = '⧉';
+  button.title = `Скопировать: ${title}`;
+  button.setAttribute('aria-label', `Скопировать ${title}`);
+  button.addEventListener('click', () => copyText(text));
 
-els.clearSelection.addEventListener('click', clearSelection);
-document.getElementById('generateBtn').addEventListener('click', generateResult);
-document.getElementById('resetBtn').addEventListener('click', clearSelection);
-document.getElementById('copyBtn').addEventListener('click', () => {
-  if (state.result) copyText(state.result);
-  else showToast('Сначала создайте ГП');
-});
+  block.append(heading, button, pre);
+  return block;
+}
 
-loadExcel().catch(error => {
-  console.error(error);
-  els.body.innerHTML = '<tr><td class="empty">Не удалось загрузить данные.</td></tr>';
-});
+function renderCheckups() {
+  const q = normalize(els.checkupSearch.value);
+  const tokens = q.split(/\s+/).filter(Boolean);
+
+  const rows = DATA.checkups.filter(row => {
+    const haystack = searchableText(row);
+    return tokens.every(token => haystack.includes(token));
+  });
+
+  const fragment = document.createDocumentFragment();
+
+  for (const row of rows) {
+    const card = document.createElement('article');
+    card.className = 'panel checkup-card';
+
+    const title = document.createElement('h2');
+    title.className = 'checkup-name';
+    title.textContent = row.name || 'Без названия';
+
+    const columns = document.createElement('div');
+    columns.className = 'checkup-columns';
+    columns.append(
+      createCopyBlock('Состав', row.composition),
+      createCopyBlock('Стандартное ГП', row.standard),
+      createCopyBlock('Код Инвитро', row.invitro)
+    );
+
+    card.append(title, columns);
+    fragment.append(card);
+  }
+
+  if (!rows.length) {
+    const empty = document.createElement('div');
+    empty.className = 'panel empty';
+    empty.textContent = 'Чекапы по запросу не найдены.';
+    fragment.append(empty);
+  }
+
+  els.checkupGrid.replaceChildren(fragment);
+}
+
+function bindEvents() {
+  document.querySelectorAll('.tab').forEach(button => {
+    button.addEventListener('click', () => switchTab(button.dataset.tab));
+  });
+
+  els.search.addEventListener('input', () => {
+    state.query[state.active] = els.search.value;
+    state.page[state.active] = 1;
+    renderCatalog();
+  });
+
+  els.clearSearch.addEventListener('click', () => {
+    state.query[state.active] = '';
+    state.page[state.active] = 1;
+    renderCatalog();
+    els.search.focus();
+  });
+
+  els.prev.addEventListener('click', () => {
+    state.page[state.active]--;
+    renderCatalog();
+  });
+
+  els.next.addEventListener('click', () => {
+    state.page[state.active]++;
+    renderCatalog();
+  });
+
+  els.selectPage.addEventListener('click', () => {
+    const selection = state.selected[state.active];
+    for (const row of visibleRows().pageRows) {
+      selection.add(rowKey(state.active, row));
+    }
+    renderCatalog();
+  });
+
+  els.clearSelection.addEventListener('click', clearSelection);
+  document.getElementById('generateBtn').addEventListener('click', generateResult);
+  document.getElementById('resetBtn').addEventListener('click', clearSelection);
+
+  document.getElementById('copyBtn').addEventListener('click', () => {
+    const text = state.results[state.active] || '';
+    if (text) copyText(text);
+    else showToast('Сначала создайте ГП');
+  });
+
+  els.checkupSearch.addEventListener('input', renderCheckups);
+}
+
+function resolveInitialTab() {
+  const hash = location.hash.replace('#', '');
+  return ['invitro', 'hemotest', 'checkups'].includes(hash) ? hash : 'invitro';
+}
+
+async function init() {
+  bindEvents();
+
+  try {
+    await loadData();
+    const initialTab = resolveInitialTab();
+    switchTab(initialTab, false);
+  } catch (error) {
+    console.error(error);
+    els.result.textContent = 'Не удалось загрузить analyses.xlsx.';
+    els.result.classList.remove('result-placeholder');
+    els.body.innerHTML = '<tr><td class="empty">Не удалось загрузить данные из analyses.xlsx.</td></tr>';
+    showToast('Ошибка загрузки данных');
+  }
+}
+
+init();
