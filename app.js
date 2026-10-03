@@ -60,7 +60,11 @@ const els = {
   toast: document.getElementById('toast')
 };
 
-const normalize = value => String(value ?? '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').trim();
+const normalize = value => String(value ?? '')
+  .normalize('NFKC')
+  .toLocaleLowerCase('ru-RU')
+  .replace(/ё/g, 'е')
+  .trim();
 const formatValue = value => value === '' || value == null ? '—' : String(value);
 const rowKey = (tab, row) => `${tab}:${row.id}`;
 
