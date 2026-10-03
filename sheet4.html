@@ -3,145 +3,156 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Чекапы</title>
+  <title>Чекапы — Гарант</title>
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <style>
-    .cell-wrapper {
-      position: relative;
-      padding: 8px;
-      min-height: 48px;
-    }
-
-    .copy-btn {
-      position: absolute;
-      top: 4px;
-      right: 4px;
-      background-color: rgba(0, 0, 0, 0.05);
-      border: none;
-      padding: 4px 6px;
-      font-size: 14px;
-      cursor: pointer;
-      border-radius: 4px;
-      transition: background-color 0.2s ease;
-    }
-
-    .copy-btn:hover {
-      background-color: rgba(0, 0, 0, 0.1);
-    }
-
-    .cell-text {
-      white-space: pre-wrap;
-    }
-
-    .toast {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background-color: #4caf50;
-      color: white;
-      padding: 10px 20px;
-      border-radius: 8px;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.3s ease;
-      z-index: 1000;
-    }
-
-    .toast.show {
-      opacity: 1;
-    }
-  </style>
 </head>
 <body>
-  <main>
-    <div id="header-placeholder"></div>
+  <div id="header-placeholder"></div>
   <script src="main.js" defer></script>
-  
-    <div id="tableContainer"></div>
-    <div id="toast" class="toast">Текст скопирован</div>
+
+  <main class="checkups-shell">
+    <div class="checkups-head">
+      <div>
+        <h1>Чекапы</h1>
+        <p>Состав программ и готовые формулировки для копирования</p>
+      </div>
+      <div class="search-wrap checkup-search">
+        <input id="checkupSearch" class="search" type="search" autocomplete="off" placeholder="Поиск по чекапам…" aria-label="Поиск по чекапам">
+      </div>
+    </div>
+    <div id="checkupGrid" class="checkup-grid"></div>
   </main>
 
+  <div id="toast" class="toast" role="status" aria-live="polite">Скопировано</div>
+
   <script>
-    async function loadExcelSheet4() {
+    let rows = [];
+    const grid = document.getElementById('checkupGrid');
+    const search = document.getElementById('checkupSearch');
+    const toast = document.getElementById('toast');
+
+    const normalize = value => String(value ?? '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').trim();
+
+    async function loadExcel() {
       const response = await fetch('analyses.xlsx');
+      if (!response.ok) throw new Error('Не удалось загрузить analyses.xlsx');
       const arrayBuffer = await response.arrayBuffer();
-      const workbook = XLSX.read(arrayBuffer, { type: "array" });
-      const sheet = workbook.Sheets[workbook.SheetNames[3]]; // Лист 4
-      renderTableFromSheet(sheet);
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      const sheet = workbook.Sheets[workbook.SheetNames[3]];
+      const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+      rows = matrix.slice(1)
+        .filter(row => row.some(value => String(value).trim() !== ''))
+        .map((values, index) => ({
+          id: index + 1,
+          name: values[0] ?? '',
+          composition: values[1] ?? '',
+          standard: values[2] ?? '',
+          invitro: values[3] ?? ''
+        }));
+
+      render();
     }
 
-    function renderTableFromSheet(sheet) {
-      const table = document.createElement('table');
-      const range = XLSX.utils.decode_range(sheet['!ref']);
-      const merges = sheet['!merges'] || [];
-      const occupied = {};
+    function createCopyBlock(title, text) {
+      const block = document.createElement('section');
+      block.className = 'copy-block';
 
-      for (let R = range.s.r; R <= range.e.r; ++R) {
-        const row = document.createElement('tr'); 
+      const heading = document.createElement('h3');
+      heading.textContent = title;
 
-        for (let C = range.s.c; C <= range.e.c; ++C) {
-          if (occupied[`${R},${C}`]) continue;
+      const pre = document.createElement('pre');
+      pre.textContent = text || '—';
 
-          const cellRef = XLSX.utils.encode_cell({ c: C, r: R });
-          const cell = sheet[cellRef];
-          const td = document.createElement(R === 0 ? 'th' : 'td');
-          const cellText = cell ? cell.v : '';
+      const button = document.createElement('button');
+      button.className = 'copy-cell';
+      button.type = 'button';
+      button.textContent = '⧉';
+      button.title = `Скопировать: ${title}`;
+      button.setAttribute('aria-label', `Скопировать ${title}`);
+      button.addEventListener('click', () => copyText(text));
 
-          // Не добавляем кнопку "Скопировать" в первую строку и первый столбец
-          if (R !== 0 && C !== 0) {
-            td.innerHTML = `
-              <div class="cell-wrapper">
-                <button class="copy-btn" data-text="${cellText}">📋</button>
-                <div class="cell-text">${cellText}</div>
-              </div>
-            `;
-          } else {
-            td.innerHTML = `<div class="cell-text">${cellText}</div>`;
-          }
+      block.append(heading, button, pre);
+      return block;
+    }
 
-          const merge = merges.find(m =>
-            R >= m.s.r && R <= m.e.r &&
-            C >= m.s.c && C <= m.e.c
-          );
+    function render() {
+      const tokens = normalize(search.value).split(/\s+/).filter(Boolean);
+      const filtered = rows.filter(row => {
+        if (!tokens.length) return true;
+        const haystack = normalize(Object.values(row).join(' '));
+        return tokens.every(token => haystack.includes(token));
+      });
 
-          if (merge) {
-            const rowspan = merge.e.r - merge.s.r + 1;
-            const colspan = merge.e.c - merge.s.c + 1;
-            if (rowspan > 1) td.rowSpan = rowspan;
-            if (colspan > 1) td.colSpan = colspan;
+      const fragment = document.createDocumentFragment();
+      filtered.forEach(row => {
+        const card = document.createElement('article');
+        card.className = 'panel checkup-card';
 
-            for (let r = merge.s.r; r <= merge.e.r; r++) {
-              for (let c = merge.s.c; c <= merge.e.c; c++) {
-                if (r === R && c === C) continue;
-                occupied[`${r},${c}`] = true;
-              }
-            }
-          }
+        const title = document.createElement('h2');
+        title.className = 'checkup-name';
+        title.textContent = row.name || 'Без названия';
 
-          row.appendChild(td);
-        }
+        const columns = document.createElement('div');
+        columns.className = 'checkup-columns';
+        columns.append(
+          createCopyBlock('Состав', row.composition),
+          createCopyBlock('Стандартное ГП', row.standard),
+          createCopyBlock('Код Инвитро', row.invitro)
+        );
 
-        table.appendChild(row);
+        card.append(title, columns);
+        fragment.append(card);
+      });
+
+      if (!filtered.length) {
+        const empty = document.createElement('div');
+        empty.className = 'panel empty';
+        empty.textContent = 'Чекапы по запросу не найдены.';
+        fragment.append(empty);
       }
 
-      document.getElementById('tableContainer').appendChild(table);
-
-      // Обработчики кнопок
-      document.querySelectorAll('.copy-btn').forEach(button => {
-        button.addEventListener('click', () => {
-          const text = button.getAttribute('data-text');
-          navigator.clipboard.writeText(text).then(() => {
-            const toast = document.getElementById('toast');
-            toast.classList.add('show');
-            setTimeout(() => toast.classList.remove('show'), 2000);
-          });
-        });
-      });
+      grid.replaceChildren(fragment);
     }
 
-    loadExcelSheet4();
+    async function copyText(text) {
+      if (!text) return;
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const area = document.createElement('textarea');
+          area.value = text;
+          area.setAttribute('readonly', '');
+          area.style.position = 'fixed';
+          area.style.opacity = '0';
+          document.body.append(area);
+          area.select();
+          const ok = document.execCommand('copy');
+          area.remove();
+          if (!ok) throw new Error('copy failed');
+        }
+        showToast('Скопировано');
+      } catch {
+        showToast('Не удалось скопировать');
+      }
+    }
+
+    let timer;
+    function showToast(message) {
+      clearTimeout(timer);
+      toast.textContent = message;
+      toast.classList.add('show');
+      timer = setTimeout(() => toast.classList.remove('show'), 1800);
+    }
+
+    search.addEventListener('input', render);
+
+    loadExcel().catch(error => {
+      console.error(error);
+      grid.innerHTML = '<div class="panel empty">Не удалось загрузить данные.</div>';
+    });
   </script>
 </body>
 </html>

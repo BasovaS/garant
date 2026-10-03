@@ -3,39 +3,60 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Частые Инвитро</title>
+  <title>Инвитро — Гарант</title>
   <link rel="stylesheet" href="styles.css" />
-   <link rel="stylesheet" href="info-button.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
   <div id="header-placeholder"></div>
   <script src="main.js" defer></script>
-  <main>
-    <div class="app">
-      <div class="sidebar">
-        <div class="result-header">Итог</div>
-        <pre id="resultText" class="result-box"></pre>
-        <div class="buttons">
-          <button id="generateBtn">Создать ГП</button>
-          <button id="resetBtn">Сбросить</button>
-          <button id="copyBtn">📋 Скопировать</button>
-        </div>
-        <div id="toast" class="toast">Скопировано!</div>
-      </div>
 
-      
-      <div class="table-section">
-        <div class="search-bar">
-          <input type="text" id="searchInput" placeholder="Поиск по таблице...">
+  <main class="shell">
+    <div class="catalog-layout">
+      <aside class="panel result-panel">
+        <div class="panel-head">
+          <h1 class="panel-title">Итог</h1>
+          <span id="selectedCount" class="count-pill">0</span>
         </div>
-        <div id="tableContainer">
+        <pre id="resultText" class="result-box result-placeholder">Выберите анализы в таблице и нажмите «Создать ГП».</pre>
+        <div class="action-grid">
+          <button id="generateBtn" class="btn primary">Создать ГП</button>
+          <button id="copyBtn" class="btn">Скопировать</button>
+          <button id="resetBtn" class="btn danger">Сбросить</button>
         </div>
-      </div>
+      </aside>
+
+      <section class="panel table-panel">
+        <div class="toolbar">
+          <div class="search-wrap">
+            <input id="searchInput" class="search" type="search" autocomplete="off" placeholder="Поиск по коду, названию или биоматериалу…" aria-label="Поиск по таблице">
+            <button id="clearSearch" class="clear-search" aria-label="Очистить поиск" title="Очистить поиск">×</button>
+          </div>
+          <div class="toolbar-actions">
+            <button id="selectPageBtn" class="btn">Выбрать страницу</button>
+            <button id="clearSelectionBtn" class="btn">Очистить выбор</button>
+          </div>
+        </div>
+        <div class="table-meta">
+          <span id="tableTitle">Инвитро</span>
+          <span id="tableStats"></span>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead id="tableHead"></thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+        <div class="pagination">
+          <button id="prevPage" class="btn" aria-label="Предыдущая страница">←</button>
+          <span id="pageLabel" class="page-label"></span>
+          <button id="nextPage" class="btn" aria-label="Следующая страница">→</button>
+        </div>
+      </section>
     </div>
-    
   </main>
 
+  <div id="toast" class="toast" role="status" aria-live="polite">Скопировано</div>
   <script src="app.js"></script>
 </body>
 </html>
