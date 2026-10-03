@@ -180,7 +180,7 @@ function renderCatalog() {
     : 'Поиск по коду, названию или биоматериалу…';
   els.stats.textContent = `Найдено: ${rows.length.toLocaleString('ru-RU')} · Всего: ${DATA[tab].length.toLocaleString('ru-RU')}`;
   els.selectedCount.textContent = selection.size;
-  els.showSelected.textContent = state.showSelectedOnly[tab] ? 'Показать все' : 'Показать выбранные';
+  els.showSelected.textContent = state.showSelectedOnly[tab] ? 'Показаны выбранные ×' : 'Показать выбранные';
   els.showSelected.classList.toggle('active-filter', state.showSelectedOnly[tab]);
   els.pageLabel.textContent = `Страница ${page} из ${totalPages}`;
   els.prev.disabled = page <= 1;
