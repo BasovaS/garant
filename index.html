@@ -28,6 +28,11 @@
 
   <main class="shell">
     <section id="catalogView" class="catalog-view">
+      <div id="hemotestNotice" class="catalog-notice hemotest-notice" role="note" hidden>
+        <strong>Обратите внимание:</strong>
+        код взятия биоматериала не подтягивается автоматически. Не забудьте выбрать его в списке или добавить потом вручную.
+      </div>
+
       <div class="catalog-layout">
         <aside class="panel result-panel">
           <div class="panel-head">
@@ -48,6 +53,7 @@
               <button id="clearSearch" class="clear-search" aria-label="Очистить поиск" title="Очистить поиск">×</button>
             </div>
             <div class="toolbar-actions">
+              <button id="showSelectedBtn" class="btn">Показать выбранные</button>
               <button id="selectPageBtn" class="btn">Выбрать страницу</button>
               <button id="clearSelectionBtn" class="btn">Очистить выбор</button>
             </div>
@@ -72,6 +78,12 @@
     </section>
 
     <section id="checkupsView" class="checkups-view">
+      <div class="checkups-notice" role="note">
+        <strong>Обратите внимание:</strong>
+        эта страница находится в разработке и может содержать устаревшую, неполную или неточную информацию.
+        Полную и актуальную информацию необходимо дополнительно проверять в мануалах.
+      </div>
+
       <div class="checkups-head">
         <div>
           <h1>Чекапы</h1>
@@ -86,6 +98,6 @@
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite">Скопировано</div>
-  <script src="app.js?v=20261003-3"></script>
+  <script src="app.js?v=20261003-hemotest-notice"></script>
 </body>
 </html>
