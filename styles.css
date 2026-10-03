@@ -109,6 +109,21 @@ button:focus-visible, input:focus-visible {
   padding: 24px;
 }
 
+.catalog-notice {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid #d9d6a8;
+  border-radius: 14px;
+  background: #fffdf0;
+  color: #625824;
+  line-height: 1.5;
+  box-shadow: 0 8px 22px rgba(90, 80, 30, .05);
+}
+
+.catalog-notice strong {
+  color: #514718;
+}
+
 .catalog-layout {
   display: grid;
   grid-template-columns: minmax(315px, 390px) minmax(0, 1fr);
@@ -288,6 +303,21 @@ tbody tr.selected td { background: #edf9f2; }
 .checkups-view { display: none; }
 .checkups-view.active { display: block; }
 .catalog-view.hidden { display: none; }
+
+.checkups-notice {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid #e7d7a8;
+  border-radius: 14px;
+  background: #fffaf0;
+  color: #6b5424;
+  line-height: 1.5;
+  box-shadow: 0 8px 22px rgba(104, 80, 28, .06);
+}
+
+.checkups-notice strong {
+  color: #5c4518;
+}
 
 .checkups-head {
   display: flex;
