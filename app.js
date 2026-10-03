@@ -430,6 +430,8 @@ function switchTab(tab, updateHash = true) {
   if (updateHash) history.replaceState(null, '', `#${tab}`);
 
   if (tab === 'checkups') {
+    els.catalogView.hidden = true;
+    els.checkupsView.hidden = false;
     els.catalogView.classList.add('hidden');
     els.checkupsView.classList.add('active');
     els.hemotestNotice.hidden = true;
@@ -438,6 +440,8 @@ function switchTab(tab, updateHash = true) {
   }
 
   state.active = tab;
+  els.checkupsView.hidden = true;
+  els.catalogView.hidden = false;
   els.checkupsView.classList.remove('active');
   els.catalogView.classList.remove('hidden');
   els.hemotestNotice.hidden = tab !== 'hemotest';
