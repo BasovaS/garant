@@ -35,6 +35,7 @@ const state = {
   page: { invitro: 1, hemotest: 1 },
   query: { invitro: '', hemotest: '' },
   selected: { invitro: new Set(), hemotest: new Set() },
+  showSelectedOnly: { invitro: false, hemotest: false },
   results: { invitro: '', hemotest: '' },
   loaded: false
 };
@@ -53,6 +54,7 @@ const els = {
   pageLabel: document.getElementById('pageLabel'),
   prev: document.getElementById('prevPage'),
   next: document.getElementById('nextPage'),
+  showSelected: document.getElementById('showSelectedBtn'),
   selectPage: document.getElementById('selectPageBtn'),
   clearSelection: document.getElementById('clearSelectionBtn'),
   checkupSearch: document.getElementById('checkupSearch'),
@@ -134,9 +136,14 @@ function searchableText(row) {
 
 function filteredRows(tab = state.active) {
   const q = normalize(state.query[tab]);
-  if (!q) return DATA[tab];
   const tokens = q.split(/\s+/).filter(Boolean);
+  const selectedOnly = state.showSelectedOnly[tab];
+  const selection = state.selected[tab];
+
   return DATA[tab].filter(row => {
+    if (selectedOnly && !selection.has(rowKey(tab, row))) return false;
+    if (!tokens.length) return true;
+
     const haystack = searchableText(row);
     return tokens.every(token => haystack.includes(token));
   });
@@ -173,6 +180,8 @@ function renderCatalog() {
     : 'Поиск по коду, названию или биоматериалу…';
   els.stats.textContent = `Найдено: ${rows.length.toLocaleString('ru-RU')} · Всего: ${DATA[tab].length.toLocaleString('ru-RU')}`;
   els.selectedCount.textContent = selection.size;
+  els.showSelected.textContent = state.showSelectedOnly[tab] ? 'Показать все' : 'Показать выбранные';
+  els.showSelected.classList.toggle('active-filter', state.showSelectedOnly[tab]);
   els.pageLabel.textContent = `Страница ${page} из ${totalPages}`;
   els.prev.disabled = page <= 1;
   els.next.disabled = page >= totalPages;
@@ -407,6 +416,7 @@ function showToast(message) {
 
 function clearSelection() {
   state.selected[state.active].clear();
+  state.showSelectedOnly[state.active] = false;
   state.results[state.active] = '';
   renderCatalog();
 }
@@ -519,6 +529,12 @@ function bindEvents() {
 
   els.next.addEventListener('click', () => {
     state.page[state.active]++;
+    renderCatalog();
+  });
+
+  els.showSelected.addEventListener('click', () => {
+    state.showSelectedOnly[state.active] = !state.showSelectedOnly[state.active];
+    state.page[state.active] = 1;
     renderCatalog();
   });
 
