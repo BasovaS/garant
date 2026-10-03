@@ -209,6 +209,7 @@ function renderCatalog() {
       else selection.delete(key);
       tr.classList.toggle('selected', checkbox.checked);
       els.selectedCount.textContent = selection.size;
+      updateResult();
     });
     checkTd.append(checkbox);
     tr.append(checkTd);
@@ -231,10 +232,8 @@ function renderCatalog() {
 
   els.body.replaceChildren(fragment);
 
-  const saved = state.results[tab];
-  els.result.textContent = saved || 'Выберите анализы в таблице и нажмите «Создать ГП».';
-  els.result.classList.toggle('result-placeholder', !saved);
-}
+  updateResult();
+
 
 function selectedRows(tab) {
   const set = state.selected[tab];
@@ -322,15 +321,12 @@ function requiresGynSampling(row) {
     && pcrSamplingSites.some(marker => text.includes(marker));
 }
 
-function generateResult() {
-  const tab = state.active;
+function buildResult(tab = state.active) {
   const rows = selectedRows(tab);
   let text = '';
 
   if (!rows.length) {
-    text = tab === 'hemotest'
-      ? 'Не выбраны анализы.'
-      : 'Выберите хотя бы один анализ для создания ГП.';
+    return '';
   } else if (tab === 'hemotest') {
     text = 'ID 417621 «Лучи Здоровье»\n';
     text += rows.map(row => `${formatValue(row.code)} - ${formatValue(row.name)} - 1 шт.`).join('\n');
@@ -353,9 +349,17 @@ function generateResult() {
     text += '\nАдрес: ';
   }
 
-  state.results[tab] = text;
-  els.result.textContent = text;
-  els.result.classList.remove('result-placeholder');
+  return text;
+}
+
+function updateResult() {
+  const text = buildResult(state.active);
+  const hasSelection = state.selected[state.active].size > 0;
+  state.results[state.active] = hasSelection ? text : '';
+  els.result.textContent = hasSelection
+    ? text
+    : (state.active === 'hemotest' ? 'Выберите анализы в таблице.' : 'Выберите анализы в таблице.');
+  els.result.classList.toggle('result-placeholder', !hasSelection);
 }
 
 async function copyText(text) {
@@ -519,13 +523,12 @@ function bindEvents() {
   });
 
   els.clearSelection.addEventListener('click', clearSelection);
-  document.getElementById('generateBtn').addEventListener('click', generateResult);
   document.getElementById('resetBtn').addEventListener('click', clearSelection);
 
   document.getElementById('copyBtn').addEventListener('click', () => {
-    const text = state.results[state.active] || '';
+    const text = state.selected[state.active].size ? buildResult(state.active) : '';
     if (text) copyText(text);
-    else showToast('Сначала создайте ГП');
+    else showToast('Сначала выберите анализ');
   });
 
   els.checkupSearch.addEventListener('input', renderCheckups);
