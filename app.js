@@ -238,6 +238,14 @@ function selectedRows(tab) {
 }
 
 function requiresGynSampling(row) {
+  const normalizedCode = normalize(row.code).replace(/\s+/g, '');
+
+  // Точные исключения из прайса: эти анализы всегда требуют 1В-ГИН.
+  const forcedGynSamplingCodes = new Set(['517', '518', '519']);
+  if (forcedGynSamplingCodes.has(normalizedCode)) {
+    return true;
+  }
+
   const text = normalize([
     row.code,
     row.name,
