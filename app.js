@@ -251,15 +251,38 @@ function generateResult() {
     text += rows.map(row => `${formatValue(row.code)} - ${formatValue(row.name)} - 1 шт.`).join('\n');
     text += '\nАдрес: ';
   } else {
-    const materials = normalize(rows.map(row => row.material).join(' '));
-    const blood = materials.includes('кров');
-    const scrape = ['соскоб', 'отделяемое', 'мазок', 'пцр', 'стекло']
-      .some(word => materials.includes(word));
+    const selectedText = normalize(rows
+      .map(row => [row.name, row.material, row.result].filter(Boolean).join(' '))
+      .join(' '));
+
+    const blood = selectedText.includes('кров');
+
+    const gynSamplingMarkers = [
+      // Цитология
+      'цитолог',
+      'жидкостн',
+      'онкоцитолог',
+      'цитограмм',
+      'риноцитограмм',
+      'папаниколау',
+      'pap test',
+      'pap-test',
+
+      // ПЦР / мазки / соскобы / микробиология
+      'пцр',
+      'соскоб',
+      'мазок',
+      'отделяемое',
+      'стекло'
+    ];
+
+    const requiresGynSampling = gynSamplingMarkers
+      .some(marker => selectedText.includes(marker));
 
     if (blood) {
       text += 'VEN - Взятие венозной крови (venous blood sampling)\n';
     }
-    if (scrape) {
+    if (requiresGynSampling) {
       text += '1В-ГИН - Взятие цитологического материала, материала для ПЦР диагностики, микробиологических исследований (Cytological material sampling, PCR diagnosis material sampling, microbiology test material sampling)\n';
     }
 
