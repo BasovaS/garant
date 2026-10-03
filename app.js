@@ -332,7 +332,7 @@ function generateResult() {
       ? 'Не выбраны анализы.'
       : 'Выберите хотя бы один анализ для создания ГП.';
   } else if (tab === 'hemotest') {
-    text = 'ID 10524 ООО «Бестдоктор»\n';
+    text = 'ID 417621 «Лучи Здоровье»\n';
     text += rows.map(row => `${formatValue(row.code)} - ${formatValue(row.name)} - 1 шт.`).join('\n');
     text += '\nАдрес: ';
   } else {
